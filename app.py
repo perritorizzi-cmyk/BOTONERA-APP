@@ -7,7 +7,7 @@ st.set_page_config(page_title="Botonera Cordobesa SA", page_icon="🧵", layout=
 
 COLOR_BORDEAUX = "#8d1b1b"
 
-# ESTILO PARA ASEGURAR VISIBILIDAD EN MÓVILES (MODO OSCURO/CLARO)
+# ESTILO PARA ASEGURAR VISIBILIDAD EN CUALQUIER MÓVIL (MODO OSCURO/CLARO)
 st.markdown(f"""
     <style>
     .producto-card {{ 
@@ -25,11 +25,11 @@ st.markdown(f"""
     </style>
     """, unsafe_allow_html=True)
 
-# 2. CABECERA CON LOGOTIPO (URL ACTUALIZADA)
+# 2. CABECERA CON LOGOTIPO CORREGIDO
 col1, col2 = st.columns([1, 3])
 with col1:
-    # He cambiado la URL por una que Streamlit acepta sin bloqueos
-    logo_url = "https://i.ibb.co/XfHzNn8/logo-botonera.png" 
+    # URL oficial de tu web que ahora forzamos para que sea visible
+    logo_url = "https://static.wixstatic.com/media/893674_2f7f985a113d42f582a85710a309f488~mv2.png"
     st.image(logo_url, width=160)
 with col2:
     st.markdown(f"<h1 style='color:{COLOR_BORDEAUX}; margin-bottom:0;'>Botonera Cordobesa SA</h1>", unsafe_allow_html=True)
@@ -44,6 +44,7 @@ SHEET_URL = f"https://docs.google.com/uc?export=download&id={FILE_ID}"
 @st.cache_data(ttl=300)
 def load_data():
     try:
+        # Cargamos con latin1 para evitar errores de acentos
         df = pd.read_csv(SHEET_URL, encoding='latin1', on_bad_lines='skip', sep=None, engine='python')
         df = df.iloc[:, [0, 1, 2]]
         df.columns = ['Código', 'Descripción', 'Precio']
@@ -59,7 +60,7 @@ if 'carrito' not in st.session_state:
     st.session_state.carrito = []
 
 # 4. BUSCADOR
-busqueda = st.text_input("🔍 ¿Qué producto buscás? (Escribí nombre o código)", value="", placeholder="Ej: Cierre, Boton...").strip().lower()
+busqueda = st.text_input("🔍 ¿Qué producto buscás?", value="", placeholder="Ej: Cierre, Boton...").strip().lower()
 
 # Filtrado de productos
 if busqueda:
@@ -69,8 +70,6 @@ else:
     df_filtrado = df.head(20)
 
 if not df_filtrado.empty:
-    st.write(f"Mostrando {len(df_filtrado)} artículos")
-    
     for i, row in df_filtrado.iterrows():
         st.markdown(f"""
         <div class="producto-card">
@@ -87,11 +86,8 @@ if not df_filtrado.empty:
             st.write(" ")
             if st.button("➕", key=f"btn_{i}"):
                 st.session_state.carrito.append({
-                    "desc": row['Descripción'], 
-                    "cant": cant, 
-                    "color": color, 
-                    "precio": row['Precio'], 
-                    "cod": row['Código']
+                    "desc": row['Descripción'], "cant": cant, 
+                    "color": color, "precio": row['Precio'], "cod": row['Código']
                 })
                 st.toast("✅ ¡Agregado!")
         st.write("---")
@@ -112,9 +108,8 @@ if st.session_state.carrito:
         except: pass
     
     st.sidebar.write(f"### Total aprox: ${total:,.2f}")
-    
-    # Botón WhatsApp
     link_wa = f"https://wa.me/5493513698953?text={urllib.parse.quote(mensaje_wa + f'\\nTotal: ${total:,.2f}')}"
+    
     st.sidebar.markdown(f"""
         <a href="{link_wa}" target="_blank">
             <button style="width:100%; background-color:#25D366; color:white !important; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;">
