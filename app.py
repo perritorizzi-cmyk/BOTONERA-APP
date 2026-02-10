@@ -2,8 +2,10 @@ import streamlit as st
 import pandas as pd
 import urllib.parse
 
-# 1. CONFIGURACION
-st.set_page_config(page_title="Botonera", layout="wide")
+# 1. CONFIGURACIÓN
+st.set_page_config(page_title="Botonera Cordobesa", layout="wide")
+
+COLOR_ROJO = "#8d1b1b"
 
 # --- LOGIN ---
 if "acceso" not in st.session_state:
@@ -14,7 +16,6 @@ if not st.session_state["acceso"]:
     usr = st.text_input("Usuario")
     psw = st.text_input("Contraseña", type="password")
     if st.button("INGRESAR"):
-        # Usamos .strip() para evitar errores si hay un espacio de más
         if usr.strip().lower() == "botonera" and psw.strip() == "2026":
             st.session_state["acceso"] = True
             st.rerun()
@@ -22,7 +23,7 @@ if not st.session_state["acceso"]:
             st.error("Usuario o clave incorrectos")
     st.stop()
 
-# --- APP PRINCIPAL ---
+# --- INICIALIZACIÓN ---
 if "carrito" not in st.session_state:
     st.session_state.carrito = []
 if "ver_pedido" not in st.session_state:
@@ -36,61 +37,46 @@ def cargar_precios():
         data = pd.read_csv(url, encoding='latin1', on_bad_lines='skip', sep=None, engine='python')
         data = data.iloc[:, [0, 1, 2]]
         data.columns = ['Cod', 'Desc', 'Precio']
+        # Limpiar precios
+        data['Precio'] = data['Precio'].astype(str).str.replace(',', '.').str.extract(r'(\d+\.?\d*)').astype(float)
         return data
     except:
         return None
 
 df = cargar_precios()
-
 if df is None:
     st.error("Error al cargar datos. Refresca la página.")
     st.stop()
 
-# 3. INTERFAZ
-st.header("🧵 Botonera Cordobesa SA")
+# 3. ENCABEZADO PERSONALIZADO
+st.markdown(f"""
+    <div style="text-align: center; padding: 10px;">
+        <h2 style="color: {COLOR_ROJO}; font-family: 'Times New Roman', serif; margin-bottom: 0;">
+            Botonera Cordobesa SA
+        </h2>
+        <h3 style="color: {COLOR_ROJO}; font-family: 'Times New Roman', serif; margin-top: 0; font-weight: normal;">
+            Sarquis & Sepag
+        </h3>
+        <p style="color: #666; font-size: 0.9em; margin-top: -10px;">
+            Horario de atención: Lunes a Viernes de 8:30 a 17:00 hs
+        </p>
+    </div>
+""", unsafe_allow_html=True)
 
-# Boton de Carrito
+# Botón de Carrito (Solo si hay productos)
 if st.session_state.carrito:
     n = len(st.session_state.carrito)
-    if st.button(f"🛒 REVISAR MI PEDIDO ({n} productos)", use_container_width=True):
+    if st.button(f"🛒 REVISAR MI PEDIDO ({n} productos)", use_container_width=True, type="primary"):
         st.session_state.ver_pedido = not st.session_state.ver_pedido
         st.rerun()
 
 st.divider()
 
+# 4. VISTA DEL PEDIDO (CARRITO)
 if st.session_state.ver_pedido:
-    st.subheader("Tu Lista")
+    st.subheader("Tu Lista de Pedido")
+    total_general = 0.0
+    
     for i, itm in enumerate(st.session_state.carrito):
-        col_a, col_b = st.columns([4, 1])
-        col_a.write(f"{itm['cant']}x {itm['desc']} - {itm['color']}")
-        if col_b.button("Borrar", key=f"del_{i}"):
-            st.session_state.carrito.pop(i)
-            st.rerun()
-    
-    # Enviar WhatsApp
-    msg = "Pedido:\n"
-    for x in st.session_state.carrito:
-        msg += f"- {x['cant']}x {x['desc']} (Col: {x['color']})\n"
-    link = f"https://wa.me/5493513698953?text={urllib.parse.quote(msg)}"
-    st.link_button("📲 ENVIAR POR WHATSAPP", link, use_container_width=True)
-    
-    if st.button("⬅️ VOLVER AL CATALOGO"):
-        st.session_state.ver_pedido = False
-        st.rerun()
+        subtotal = it
 
-else:
-    busq = st.text_input("🔍 Buscar por nombre o código")
-    
-    res = df[df['Desc'].str.lower().str.contains(busq.lower(), na=False) | 
-             df['Cod'].astype(str).str.contains(busq, na=False)] if busq else df.head(10)
-
-    for i, r in res.iterrows():
-        st.write(f"**{r['Desc']}**")
-        st.write(f"Cod: {r['Cod']} | Precio: ${r['Precio']}")
-        c1, c2, c3 = st.columns([2, 1, 1])
-        color = c1.text_input("Color", key=f"c_{i}")
-        cant = c2.number_input("Cant", 1, 100, 1, key=f"n_{i}")
-        if c3.button("Añadir", key=f"b_{i}"):
-            st.session_state.carrito.append({"desc":r['Desc'], "cant":cant, "color":color, "cod":r['Cod']})
-            st.toast("Añadido")
-        st.divider()
