@@ -2,47 +2,56 @@ import streamlit as st
 import pandas as pd
 import urllib.parse
 
-# 1. CONFIGURACIÓN Y ESTILO
+# 1. CONFIGURACIÓN DE PÁGINA Y ESTILO PROFESIONAL
 st.set_page_config(page_title="Botonera Cordobesa - Pedidos", page_icon="🧵", layout="wide")
 
 st.markdown("""
     <style>
-    .stButton>button { width: 100%; background-color: #008CBA; color: white; border-radius: 8px; }
+    .stButton>button { width: 100%; background-color: #008CBA; color: white; border-radius: 8px; font-weight: bold; }
+    .stNumberInput { margin-bottom: 10px; }
     </style>
     """, unsafe_allow_html=True)
 
 st.title("🧵 Botonera Cordobesa SA")
-st.subheader("Lista de Precios y Pedidos Mayoristas")
+st.subheader("Consulta de Precios y Pedidos")
 
-# 2. CONEXIÓN A TU ARCHIVO (Enlace de descarga directa corregido)
+# 2. CONEXIÓN A TU ARCHIVO DE GOOGLE DRIVE
+# Este link descarga directamente tu CSV
 FILE_ID = "1LTJJ-iXYdcl1gRhcbXaC0jw64J9Khzwo"
 SHEET_URL = f"https://docs.google.com/uc?export=download&id={FILE_ID}"
 
 @st.cache_data(ttl=600)
 def load_data():
-    # Cargamos el CSV desde tu Google Drive
-    df = pd.read_csv(SHEET_URL)
-    # Asignamos nombres a tus columnas A, B y C
+    # Usamos encoding='latin1' para evitar el error de acentos y eñes
+    df = pd.read_csv(SHEET_URL, encoding='latin1')
+    # Forzamos los nombres de las columnas que me pasaste (A, B y C)
+    # Ignoramos si el CSV tiene otros nombres originales
     df.columns = ['Código', 'Descripción', 'Precio'] + list(df.columns[3:])
     return df
 
+# 3. LÓGICA DE LA APLICACIÓN
 try:
     df = load_data()
 
+    # Inicializar el carrito en la memoria del navegador
     if 'carrito' not in st.session_state:
         st.session_state.carrito = []
 
-    # 3. BUSCADOR
-    busqueda = st.text_input("🔍 ¿Qué estás buscando? (Ej: Cierre, Botón, Hilo...)", "").lower()
+    # Buscador intuitivo
+    busqueda = st.text_input("🔍 ¿Qué producto buscas? (Escribe nombre o código)", "").lower()
     
-    # Filtrado por descripción o código
-    df_filtrado = df[df['Descripción'].astype(str).str.lower().str.contains(busqueda) | 
-                     df['Código'].astype(str).str.lower().str.contains(busqueda)]
+    # Filtrar datos (limpiamos nulos para que no de error)
+    df_filtrado = df.dropna(subset=['Descripción'])
+    df_filtrado = df_filtrado[
+        df_filtrado['Descripción'].astype(str).str.lower().str.contains(busqueda) | 
+        df_filtrado['Código'].astype(str).str.lower().str.contains(busqueda)
+    ]
 
-    # 4. LISTADO DE PRODUCTOS (Limitamos a 50 para rapidez)
-    st.write(f"Mostrando {len(df_filtrado)} productos")
-    
-    for i, row in df_filtrado.head(50).iterrows():
+    st.write(f"Se encontraron {len(df_filtrado)} artículos")
+    st.divider()
+
+    # 4. LISTADO DE PRODUCTOS (Mostramos los primeros 100 para que sea rápido)
+    for i, row in df_filtrado.head(100).iterrows():
         with st.container():
             col1, col2, col3 = st.columns([2, 1, 1])
             with col1:
@@ -52,9 +61,10 @@ try:
                 st.markdown(f"**${row['Precio']}**")
                 st.caption("+ IVA")
             with col3:
-                color = st.text_input("Color", placeholder="Ej: Rojo", key=f"color_{i}")
-                cant = st.number_input("Cant.", min_value=1, value=1, key=f"cant_{i}")
-                if st.button("🛒 Agregar", key=f"btn_{i}"):
+                # Opciones para el cliente
+                color = st.text_input("Color", placeholder="Ej: Blanco", key=f"color_{i}")
+                cant = st.number_input("Cantidad", min_value=1, value=1, key=f"cant_{i}")
+                if st.button("➕ Agregar", key=f"btn_{i}"):
                     st.session_state.carrito.append({
                         "desc": row['Descripción'],
                         "cod": row['Código'],
@@ -62,33 +72,54 @@ try:
                         "color": color,
                         "precio": row['Precio']
                     })
-                    st.toast(f"Agregado: {row['Descripción']}")
+                    st.toast(f"✅ Sumado: {row['Descripción']}")
             st.divider()
 
-    # 5. CARRITO Y ENVÍO POR WHATSAPP
+    # 5. PANEL DEL PEDIDO (CARRITO) EN LA BARRA LATERAL
     if st.session_state.carrito:
         st.sidebar.header("🛒 Mi Pedido")
-        resumen_wa = "Hola Botonera Cordobesa, este es mi pedido:\n\n"
+        mensaje_wa = "Hola Botonera Cordobesa, quiero hacer este pedido:\n\n"
         total_aprox = 0
         
-        for item in st.session_state.carrito:
+        for idx, item in enumerate(st.session_state.carrito):
             st.sidebar.write(f"**{item['cant']}x** {item['desc']}")
-            resumen_wa += f"- {item['cant']} x {item['desc']} (Cod: {item['cod']}) | Color: {item['color']}\n"
-            total_aprox += float(item['precio']) * item['cant']
+            if item['color']:
+                st.sidebar.caption(f"Color: {item['color']}")
+            
+            # Sumar al mensaje de WhatsApp
+            mensaje_wa += f"- {item['cant']} x {item['desc']} (Cod: {item['cod']})"
+            if item['color']:
+                mensaje_wa += f" | Color: {item['color']}"
+            mensaje_wa += "\n"
+            
+            # Intentar sumar al total si el precio es un número
+            try:
+                total_aprox += float(item['precio']) * item['cant']
+            except:
+                pass
         
         st.sidebar.divider()
         st.sidebar.write(f"### Total aprox: ${total_aprox:,.2f}")
+        st.sidebar.caption("Precios sujetos a IVA")
 
-        numero_tel = "5493513698953"
-        texto_final = urllib.parse.quote(resumen_wa + f"\nTotal aprox: ${total_aprox:,.2f}")
-        link_wa = f"https://wa.me/{numero_tel}?text={texto_final}"
+        # Botón de WhatsApp
+        numero_vendedor = "5493513698953"
+        texto_final = urllib.parse.quote(mensaje_wa + f"\nTotal aprox: ${total_aprox:,.2f}")
+        link_wa = f"https://wa.me/{numero_vendedor}?text={texto_final}"
         
-        st.sidebar.markdown(f'[**✅ ENVIAR PEDIDO POR WHATSAPP**]({link_wa})', unsafe_allow_html=True)
+        st.sidebar.markdown(f"""
+            <a href="{link_wa}" target="_blank">
+                <button style="width:100%; background-color:#25D366; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;">
+                    📲 ENVIAR POR WHATSAPP
+                </button>
+            </a>
+            """, unsafe_allow_html=True)
         
-        if st.sidebar.button("🗑️ Vaciar carrito"):
+        if st.sidebar.button("🗑️ Vaciar Carrito"):
             st.session_state.carrito = []
             st.rerun()
 
 except Exception as e:
-    st.error(f"Error al cargar los datos: {e}")
-    st.info("Asegúrate de que el archivo en Drive tenga los permisos de acceso correctos.")
+    st.error("Error al cargar la base de datos.")
+    st.write("Detalle técnico:", e)
+    st.info("Asegúrate de que el archivo en Google Drive tenga los permisos de 'Cualquier persona con el enlace puede leer'.")
