@@ -2,36 +2,34 @@ import streamlit as st
 import pandas as pd
 import urllib.parse
 
-# 1. CONFIGURACIÓN DE LA APP Y LOGO
-# He puesto el link directo a tu logo para que el navegador lo reconozca
-LOGO_URL = "https://raw.githubusercontent.com/BotoneraCordobesa/botonera-app/main/logo.jpg" 
-
+# 1. CONFIGURACIÓN DE LA APP (Sin emoji)
+# Intentará cargar 'logo.png' de tu GitHub para el icono de la pestaña y el botón
 st.set_page_config(
     page_title="Botonera Cordobesa",
-    page_icon="🧵", 
+    page_icon="logo.png", 
     layout="wide"
 )
 
 COLOR_INST = "#8d1b1b"
 
-# Estilos visuales para que sea una "App" profesional
+# Estilos visuales institucionales
 st.markdown(f"""
     <style>
     h1, h2, h3, b {{ color: {COLOR_INST} !important; font-family: 'serif'; }}
     .stButton>button {{ background-color: {COLOR_INST}; color: white !important; border-radius: 10px; width: 100%; font-weight: bold; }}
     .stTextInput>div>div>input {{ border: 2px solid {COLOR_INST} !important; }}
-    /* Ajuste para que el total se vea resaltado */
+    /* Resaltado para el Total */
     .stAlert {{ border: 2px solid {COLOR_INST}; background-color: #fff1f1; }}
     </style>
 """, unsafe_allow_html=True)
 
-# 2. ENCABEZADO
+# 2. ENCABEZADO UNIFICADO
 st.markdown(f"<h1 style='text-align:center; margin-bottom:0;'>Botonera Cordobesa SA</h1>", unsafe_allow_html=True)
 st.markdown(f"<h1 style='text-align:center; margin-top:0;'>Sarquis & Sepag</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align:center;'><b>Horario:</b> Lunes a Viernes 8:30 a 17:00 hs</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align:center;'><b>Horario de atención:</b> Lunes a Viernes 8:30 a 17:00 hs</p>", unsafe_allow_html=True)
 st.markdown("---")
 
-# 3. SESIÓN Y DATOS
+# 3. MANEJO DE ESTADO Y DATOS
 if "auth" not in st.session_state: st.session_state["auth"] = False
 if "carrito" not in st.session_state: st.session_state.carrito = []
 if "ver_pedido" not in st.session_state: st.session_state.ver_pedido = False
@@ -64,19 +62,19 @@ if not st.session_state["auth"]:
                 st.error("Usuario o clave incorrectos")
     st.stop()
 
-# 5. BOTÓN DE CARRITO FLOTANTE
+# 5. CARRITO Y NAVEGACIÓN
 if st.session_state.carrito:
-    if st.button(f"🛒 REVISAR MI PEDIDO ({len(st.session_state.carrito)} ítems)"):
+    if st.button(f"🛒 REVISAR MI PEDIDO ({len(st.session_state.carrito)} productos)"):
         st.session_state.ver_pedido = not st.session_state.ver_pedido
         st.rerun()
 
-# --- PANTALLA DE PEDIDO ---
+# --- PANTALLA DE RESUMEN DE PEDIDO ---
 if st.session_state.ver_pedido:
-    st.header("📝 Tu Pedido")
-    total_acumulado = 0.0
+    st.header("📝 Resumen de Pedido")
+    total_compra = 0.0
     for i, itm in enumerate(st.session_state.carrito):
         sub = itm['precio'] * itm['cant']
-        total_acumulado += sub
+        total_compra += sub
         c1, c2 = st.columns([4, 1])
         c1.write(f"**{itm['cant']}x** {itm['desc']} (Col: {itm['color']}) - ${sub:,.2f}")
         if c2.button("Eliminar", key=f"del_{i}"):
@@ -84,13 +82,13 @@ if st.session_state.ver_pedido:
             st.rerun()
     
     st.markdown("---")
-    # TOTAL RESALTADO
-    st.error(f"### IMPORTE TOTAL: ${total_acumulado:,.2f}")
+    # TOTAL EN BARRA ROJA VISIBLE
+    st.error(f"### IMPORTE TOTAL: ${total_compra:,.2f}")
     
     msg = f"Pedido de Botonera Cordobesa:\n"
     for x in st.session_state.carrito:
         msg += f"- {x['cant']}x {x['desc']} (Col: {x['color']}) - ${x['precio']*x['cant']:,.2f}\n"
-    msg += f"\nTOTAL: ${total_acumulado:,.2f}"
+    msg += f"\nTOTAL ESTIMADO: ${total_compra:,.2f}"
     
     st.link_button("📲 ENVIAR PEDIDO POR WHATSAPP", f"https://wa.me/5493513698953?text={urllib.parse.quote(msg)}")
     
@@ -98,29 +96,29 @@ if st.session_state.ver_pedido:
         st.session_state.ver_pedido = False
         st.rerun()
 
-# --- PANTALLA DE CATÁLOGO ---
+# --- PANTALLA DE CATÁLOGO COMPLETO ---
 else:
-    busqueda = st.text_input("🔍 Buscar artículo por nombre o código...")
+    busqueda = st.text_input("🔍 Buscar por descripción o código...")
     
     if busqueda:
         items = df[df['Desc'].str.lower().str.contains(busqueda.lower(), na=False) | 
                    df['Cod'].astype(str).str.contains(busqueda, na=False)]
     else:
-        items = df
+        items = df # Sin límites, muestra todo
 
     st.info(f"Mostrando {len(items)} productos")
 
     for idx, row in items.iterrows():
         with st.container():
             st.markdown(f"**{row['Desc']}**")
-            st.write(f"Código: {row['Cod']} | Precio: ${row['Precio']:,.2f}")
+            st.write(f"Cód: {row['Cod']} | Precio: ${row['Precio']:,.2f}")
             col_a, col_b, col_c = st.columns([2, 1, 1])
-            color_txt = col_a.text_input("Color", key=f"col_{idx}", placeholder="Nro")
-            cant_val = col_b.number_input("Cant", 1, 5000, 1, key=f"can_{idx}")
+            color_sel = col_a.text_input("Color", key=f"col_{idx}", placeholder="Nro")
+            cant_sel = col_b.number_input("Cant", 1, 5000, 1, key=f"can_{idx}")
             if col_c.button("Añadir", key=f"btn_{idx}"):
                 st.session_state.carrito.append({
-                    "desc": row['Desc'], "cant": cant_val, "color": color_txt, 
+                    "desc": row['Desc'], "cant": cant_sel, "color": color_sel, 
                     "precio": row['Precio'], "cod": row['Cod']
                 })
-                st.toast(f"✅ Añadido: {row['Desc']}")
+                st.toast(f"✅ Añadido")
             st.divider()
