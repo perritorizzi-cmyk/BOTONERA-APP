@@ -2,32 +2,32 @@ import streamlit as st
 import pandas as pd
 import urllib.parse
 
-# 1. CONFIGURACION BASICA
-st.set_page_config(page_title="Botonera", layout="wide")
-ROJO = "#8d1b1b"
+# 1. CONFIGURACIÓN Y ESTILO DIRECTO
+st.set_page_config(page_title="Botonera Cordobesa", layout="wide")
+COLOR_INST = "#8d1b1b"
 
-# Estilos simples y efectivos
 st.markdown(f"""
     <style>
-    h1, h2, h3, b {{ color: {ROJO} !important; }}
-    .stButton>button {{ background-color: {ROJO}; color: white !important; width: 100%; border-radius: 10px; }}
-    .stTextInput>div>div>input {{ border: 2px solid {ROJO} !important; }}
+    h1, h2, h3, b {{ color: {COLOR_INST} !important; }}
+    .stButton>button {{ background-color: {COLOR_INST}; color: white !important; border-radius: 10px; width: 100%; }}
+    .stTextInput>div>div>input {{ border: 2px solid {COLOR_INST} !important; }}
     </style>
 """, unsafe_allow_html=True)
 
-# 2. ENCABEZADO (Mismo tamaño para ambos)
-st.markdown(f"<h1 style='text-align:center; margin:0;'>Botonera Cordobesa SA</h1>", unsafe_allow_html=True)
-st.markdown(f"<h1 style='text-align:center; margin:0;'>Sarquis & Sepag</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align:center;'>Horario: Lunes a Viernes 8:30 a 17:00 hs</p>", unsafe_allow_html=True)
+# 2. ENCABEZADO UNIFICADO
+st.markdown(f"<h1 style='text-align:center; margin-bottom:0;'>Botonera Cordobesa SA</h1>", unsafe_allow_html=True)
+st.markdown(f"<h1 style='text-align:center; margin-top:0;'>Sarquis & Sepag</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align:center;'><b>Horario:</b> Lunes a Viernes 8:30 a 17:00 hs</p>", unsafe_allow_html=True)
 st.markdown("---")
 
-# 3. SESION Y DATOS
+# 3. MANEJO DE ESTADO
 if "auth" not in st.session_state: st.session_state["auth"] = False
 if "carrito" not in st.session_state: st.session_state.carrito = []
 if "ver_pedido" not in st.session_state: st.session_state.ver_pedido = False
 
-@st.cache_data(ttl=300)
-def traer_datos():
+# 4. CARGA DE BASE DE DATOS
+@st.cache_data(ttl=600)
+def cargar_catalogo():
     url = "https://docs.google.com/uc?export=download&id=1LTJJ-iXYdcl1gRhcbXaC0jw64J9Khzwo"
     try:
         d = pd.read_csv(url, encoding='latin1', on_bad_lines='skip', sep=None, engine='python')
@@ -37,73 +37,82 @@ def traer_datos():
         return d
     except: return None
 
-df = traer_datos()
+df = cargar_catalogo()
 
-# 4. LOGIN
+# 5. LOGIN (Optimizado para celular)
 if not st.session_state["auth"]:
-    col_a, col_b, col_c = st.columns([1, 2, 1])
-    with col_b:
-        st.subheader("🔐 Acceso")
-        user = st.text_input("Usuario")
-        pas = st.text_input("Clave", type="password")
-        if st.button("ENTRAR"):
-            if user.lower() == "botonera" and pas == "2026":
+    _, col_login, _ = st.columns([1, 4, 1])
+    with col_login:
+        st.subheader("🔐 Acceso Clientes")
+        usuario_ingresado = st.text_input("Usuario")
+        clave_ingresada = st.text_input("Contraseña", type="password")
+        if st.button("INGRESAR"):
+            # Limpiamos espacios por si el autocorrector del celular agrega uno
+            if usuario_ingresado.strip().lower() == "botonera" and clave_ingresada.strip() == "2026":
                 st.session_state["auth"] = True
                 st.rerun()
-            else: st.error("Error de datos")
+            else:
+                st.error("Usuario o clave incorrectos")
     st.stop()
 
-# 5. BOTON DE CARRITO
+# 6. INTERFAZ POST-LOGIN
 if st.session_state.carrito:
-    if st.button(f"🛒 VER MI PEDIDO ({len(st.session_state.carrito)} ARTICULOS)"):
+    if st.button(f"🛒 REVISAR MI PEDIDO ({len(st.session_state.carrito)} ítems)"):
         st.session_state.ver_pedido = not st.session_state.ver_pedido
         st.rerun()
 
-# 6. PANTALLA: CARRITO Y TOTAL
+# --- VISTA CARRITO ---
 if st.session_state.ver_pedido:
-    st.header("Tu Pedido")
-    suma = 0.0
-    for i, art in enumerate(st.session_state.carrito):
-        subt = art['precio'] * art['cant']
-        suma += subt
+    st.header("📝 Resumen de Pedido")
+    total = 0.0
+    for i, itm in enumerate(st.session_state.carrito):
+        sub = itm['precio'] * itm['cant']
+        total += sub
         c1, c2 = st.columns([4, 1])
-        c1.write(f"**{art['cant']}x** {art['desc']} (Col: {art['color']}) - **${subt:,.2f}**")
-        if c2.button("Eliminar", key=f"del_{i}"):
+        c1.write(f"**{itm['cant']}x** {itm['desc']} (Col: {itm['color']}) - ${sub:,.2f}")
+        if c2.button("❌", key=f"del_{i}"):
             st.session_state.carrito.pop(i)
             st.rerun()
     
     st.markdown("---")
-    # TOTAL VISIBLE (Usamos h1 puro de Streamlit para que no falle)
-    st.error(f"VALOR TOTAL DEL PEDIDO: ${suma:,.2f}")
+    # TOTAL EN BARRA ROJA (Garantizado que se vea)
+    st.error(f"### IMPORTE TOTAL: ${total:,.2f}")
     
-    txt = f"Pedido Botonera:\n"
-    for x in st.session_state.carrito: txt += f"- {x['cant']}x {x['desc']} (Col: {x['color']})\n"
-    txt += f"\nTOTAL: ${suma:,.2f}"
+    # Preparar mensaje WhatsApp
+    msg = f"Pedido Botonera Cordobesa:\n"
+    for x in st.session_state.carrito:
+        msg += f"- {x['cant']}x {x['desc']} (Col: {x['color']}) - ${x['precio']*x['cant']:,.2f}\n"
+    msg += f"\nTOTAL: ${total:,.2f}"
     
-    st.link_button("📲 ENVIAR POR WHATSAPP", f"https://wa.me/5493513698953?text={urllib.parse.quote(txt)}")
-    if st.button("⬅️ VOLVER AL CATALOGO"):
+    st.link_button("📲 ENVIAR PEDIDO POR WHATSAPP", f"https://wa.me/5493513698953?text={urllib.parse.quote(msg)}")
+    
+    if st.button("⬅️ VOLVER AL CATÁLOGO"):
         st.session_state.ver_pedido = False
         st.rerun()
 
-# 7. PANTALLA: CATALOGO COMPLETO
+# --- VISTA CATÁLOGO ---
 else:
-    busq = st.text_input("🔍 Buscar producto...", placeholder="Nombre o codigo")
+    busqueda = st.text_input("🔍 Buscar artículo o código...")
     
-    if busq:
-        datos = df[df['Desc'].str.lower().str.contains(busq.lower(), na=False) | df['Cod'].astype(str).str.contains(busq, na=False)]
+    if busqueda:
+        items = df[df['Desc'].str.lower().str.contains(busqueda.lower(), na=False) | 
+                   df['Cod'].astype(str).str.contains(busqueda, na=False)]
     else:
-        datos = df # Muestra TODA la lista sin limites
-    
-    st.write(f"Viendo {len(datos)} articulos")
-    
-    for i, r in datos.iterrows():
+        items = df # Muestra toda la lista
+
+    st.info(f"Mostrando {len(items)} productos")
+
+    for idx, row in items.iterrows():
         with st.container():
-            st.write(f"**{r['Desc']}**")
-            st.write(f"Cód: {r['Cod']} | Precio: ${r['Precio']:,.2f}")
-            ca, cb, cc = st.columns([2, 1, 1])
-            col = ca.text_input("Color", key=f"c{i}")
-            cnt = cb.number_input("Cant", 1, 5000, 1, key=f"n{i}")
-            if cc.button("Añadir", key=f"b{i}"):
-                st.session_state.carrito.append({"desc":r['Desc'], "cant":cnt, "color":col, "precio":r['Precio']})
-                st.toast("Añadido")
+            st.markdown(f"**{row['Desc']}**")
+            st.write(f"Código: {row['Cod']} | Precio: ${row['Precio']:,.2f}")
+            col_a, col_b, col_c = st.columns([2, 1, 1])
+            color_sel = col_a.text_input("Color", key=f"color_{idx}")
+            cant_sel = col_b.number_input("Cant", 1, 5000, 1, key=f"cant_{idx}")
+            if col_c.button("Añadir", key=f"btn_{idx}"):
+                st.session_state.carrito.append({
+                    "desc": row['Desc'], "cant": cant_sel, "color": color_sel, 
+                    "precio": row['Precio'], "cod": row['Cod']
+                })
+                st.toast("Añadido al pedido")
             st.divider()
