@@ -2,8 +2,8 @@ import streamlit as st
 import pandas as pd
 import urllib.parse
 
-# 1. CONFIGURACIÓN Y LOGO
-st.set_page_config(page_title="Botonera Cordobesa", page_icon="🧵", layout="wide")
+# 1. CONFIGURACIÓN E ICONO
+st.set_page_config(page_title="Botonera Cordobesa", page_icon="logo.png", layout="wide")
 COLOR_ROJO = "#8d1b1b"
 
 st.markdown(f"""
@@ -11,18 +11,17 @@ st.markdown(f"""
     h1, h2, h3, b {{ color: {COLOR_ROJO} !important; font-family: 'serif'; }}
     .stButton>button {{ background-color: {COLOR_ROJO}; color: white !important; border-radius: 10px; width: 100%; font-weight: bold; }}
     .stTextInput>div>div>input {{ border: 2px solid {COLOR_ROJO} !important; }}
-    /* Caja de total resaltada */
     .stAlert {{ border: 2px solid {COLOR_ROJO} !important; background-color: #fff1f1 !important; }}
     </style>
 """, unsafe_allow_html=True)
 
-# 2. ENCABEZADO UNIFICADO
+# 2. ENCABEZADO
 st.markdown(f"<h1 style='text-align:center; margin-bottom:0;'>Botonera Cordobesa SA</h1>", unsafe_allow_html=True)
 st.markdown(f"<h1 style='text-align:center; margin-top:0;'>Sarquis & Sepag</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align:center;'><b>Horario:</b> Lunes a Viernes 8:30 a 17:00 hs</p>", unsafe_allow_html=True)
 st.markdown("---")
 
-# 3. ESTADOS DE SESIÓN
+# 3. ESTADOS
 if "auth" not in st.session_state: st.session_state["auth"] = False
 if "carrito" not in st.session_state: st.session_state.carrito = []
 if "ver_pedido" not in st.session_state: st.session_state.ver_pedido = False
@@ -41,7 +40,7 @@ def cargar_excel():
 
 df = cargar_excel()
 
-# 5. LOGIN (Optimizado para evitar el error de la foto)
+# 5. LOGIN
 if not st.session_state["auth"]:
     _, col_log, _ = st.columns([1, 4, 1])
     with col_log:
@@ -52,20 +51,21 @@ if not st.session_state["auth"]:
             if u_ing.strip().lower() == "botonera" and p_ing.strip() == "2026":
                 st.session_state["auth"] = True
                 st.rerun()
-            else:
-                st.error("Datos incorrectos")
+            else: st.error("Datos incorrectos")
     st.stop()
 
-# 6. BOTÓN CARRITO
+# 6. CARRITO
 if st.session_state.carrito:
     if st.button(f"🛒 REVISAR MI PEDIDO ({len(st.session_state.carrito)} ítems)"):
         st.session_state.ver_pedido = not st.session_state.ver_pedido
         st.rerun()
 
-# --- VISTA PEDIDO ---
+# --- VISTA PEDIDO (CON OPCIÓN EMAIL) ---
 if st.session_state.ver_pedido:
     st.header("Tu Pedido")
     suma_total = 0.0
+    
+    # Listado para visualización
     for i, itm in enumerate(st.session_state.carrito):
         sub = itm['precio'] * itm['cant']
         suma_total += sub
@@ -75,16 +75,31 @@ if st.session_state.ver_pedido:
             st.session_state.carrito.pop(i)
             st.rerun()
     
-    st.markdown("---")
-    # TOTAL EN BARRA ROJA (Solución a la foto del recuadro vacío)
     st.error(f"### TOTAL A PAGAR: ${suma_total:,.2f}")
     
+    # FORMATEO PARA WHATSAPP
     msg_wa = f"Pedido Botonera Cordobesa:\n"
     for x in st.session_state.carrito:
         msg_wa += f"- {x['cant']}x {x['desc']} (Col: {x['color']}) - ${x['precio']*x['cant']:,.2f}\n"
     msg_wa += f"\nTOTAL: ${suma_total:,.2f}"
     
+    # FORMATEO PARA EMAIL (Imprimible)
+    destinatario = "ivanrizzi@hotmail.com"
+    asunto = "NUEVO PEDIDO - BOTONERA CORDOBESA"
+    cuerpo_mail = "DETALLE DEL PEDIDO:\n\n"
+    cuerpo_mail += "CANT | DESCRIPCION | COLOR | SUBTOT\n"
+    cuerpo_mail += "---------------------------------------\n"
+    for x in st.session_state.carrito:
+        cuerpo_mail += f"{x['cant']} x {x['desc']} | Col: {x['color']} | ${x['precio']*x['cant']:,.2f}\n"
+    cuerpo_mail += "---------------------------------------\n"
+    cuerpo_mail += f"TOTAL GENERAL: ${suma_total:,.2f}"
+    
+    # BOTONES DE ENVÍO
     st.link_button("📲 ENVIAR POR WHATSAPP", f"https://wa.me/5493513698953?text={urllib.parse.quote(msg_wa)}")
+    
+    st.link_button("📧 ENVIAR POR EMAIL (Para imprimir)", 
+                   f"mailto:{destinatario}?subject={urllib.parse.quote(asunto)}&body={urllib.parse.quote(cuerpo_mail)}")
+    
     if st.button("⬅️ VOLVER AL CATÁLOGO"):
         st.session_state.ver_pedido = False
         st.rerun()
@@ -92,11 +107,8 @@ if st.session_state.ver_pedido:
 # --- VISTA CATÁLOGO ---
 else:
     busq = st.text_input("🔍 Buscar artículo o código...")
-    if busq:
-        mostrables = df[df['Desc'].str.lower().str.contains(busq.lower(), na=False) | 
-                        df['Cod'].astype(str).str.contains(busq, na=False)]
-    else:
-        mostrables = df # Muestra toda la lista sin límites para ir hacia abajo
+    mostrables = df[df['Desc'].str.lower().str.contains(busq.lower(), na=False) | 
+                    df['Cod'].astype(str).str.contains(busq, na=False)] if busq else df
 
     st.info(f"Mostrando {len(mostrables)} artículos")
 
