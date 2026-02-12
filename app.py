@@ -109,4 +109,3 @@ else:
         if cc.button("➕", key=f"b_{idx}"):
             st.session_state.carrito.append({'d': r['Desc'], 'p': r['Precio'], 'n': cant, 'c': color})
             st.toast("Agregado")
-
